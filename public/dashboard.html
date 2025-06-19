@@ -38,6 +38,12 @@
         </form>
       </div>
 
+      <!-- Uploaded Files Section -->
+      <div class="mb-8">
+        <h3 class="text-lg font-semibold mb-2">已上傳文件</h3>
+        <ul id="uploadedFiles" class="space-y-2"></ul>
+      </div>
+
       <!-- Recommendations Section -->
       <div id="recommendations" class="mb-8">
         <h3 class="text-lg font-semibold mb-2">推薦文件</h3>
@@ -104,7 +110,8 @@
             if (response.ok) {
               alert(data.message);
               uploadForm.reset();
-              fetchRecommendations(); // Fetch recommendations after upload
+              fetchRecommendations();
+              fetchUploadedFiles(); // Refresh uploaded files
             } else {
               alert(data.error);
             }
@@ -173,6 +180,46 @@
         });
       }
 
+      // Fetch uploaded files
+      async function fetchUploadedFiles() {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        try {
+          const response = await fetch('http://localhost:3000/api/my_files', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await response.json();
+          if (response.ok) {
+            renderUploadedFiles(data.files);
+          } else {
+            console.error(data.error);
+          }
+        } catch (error) {
+          console.error('網絡錯誤');
+        }
+      }
+
+      // Render uploaded files
+      function renderUploadedFiles(files) {
+        const uploadedFiles = document.getElementById('uploadedFiles');
+        uploadedFiles.innerHTML = '';
+        if (files.length === 0) {
+          uploadedFiles.innerHTML = '<li class="text-gray-500">無已上傳文件</li>';
+          return;
+        }
+        files.forEach(file => {
+          const li = document.createElement('li');
+          li.className = 'p-2 border rounded';
+          li.innerHTML = `
+            <p><strong>文件名:</strong> ${file.name}</p>
+            <p><strong>擁有者:</strong> ${file.owner}</p>
+            <a href="/download/${file.id}" class="text-blue-500 hover:underline">下載</a>
+          `;
+          uploadedFiles.appendChild(li);
+        });
+      }
+
       // Fetch recommendations
       async function fetchRecommendations() {
         const token = localStorage.getItem('token');
@@ -232,7 +279,8 @@
             if (userInfo) {
               userInfo.textContent = `用戶名: ${data.user.username}, 郵箱: ${data.user.email}`;
             }
-            fetchRecommendations(); // Load recommendations on page load
+            fetchRecommendations();
+            fetchUploadedFiles(); // Load uploaded files on page load
           } else {
             localStorage.removeItem('token');
             document.getElementById('welcomeContent')?.classList.remove('hidden');

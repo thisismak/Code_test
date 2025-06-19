@@ -14,7 +14,7 @@ app = Flask(__name__, static_folder='public')
 CORS(app)
 PORT = 3000
 JWT_SECRET = 'your_jwt_secret_key'
-UPLOAD_FOLDER = 'uploads'
+UPLOAD_FOLDER = 'Uploads'
 ALLOWED_EXTENSIONS = {'txt', 'pdf'}
 
 # Configure logging
@@ -434,6 +434,45 @@ def download_file(file_id):
         return jsonify({'error': '無效的token'}), 401
     except Exception as e:
         logger.error(f"Download error: {str(e)}")
+        return jsonify({'error': '服務器錯誤'}), 500
+
+# Get user's uploaded files route
+@app.route('/api/my_files', methods=['GET'])
+def get_my_files():
+    token = request.headers.get('Authorization')
+    if not token or not token.startswith('Bearer '):
+        return jsonify({'error': '未提供token'}), 401
+
+    token = token.split(' ')[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+
+        # Fetch files owned by the user
+        conn = sqlite3.connect('database.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT f.id, f.name, u.username AS owner
+            FROM files f
+            JOIN users u ON f.owner_id = u.id
+            WHERE f.owner_id = ?
+        ''', (decoded['userId'],))
+        files = cursor.fetchall()
+        conn.close()
+
+        # Format response
+        file_list = [{
+            'id': file['id'],
+            'name': file['name'],
+            'owner': file['owner']
+        } for file in files]
+
+        return jsonify({'files': file_list}), 200
+
+    except jwt.InvalidTokenError:
+        return jsonify({'error': '無效的token'}), 401
+    except Exception as e:
+        logger.error(f"My files error: {str(e)}")
         return jsonify({'error': '服務器錯誤'}), 500
 
 # Serve index.html for root path
